@@ -40,11 +40,12 @@ namespace PyramidSolver.Models
             }
         }
 
-        public void PrintDesk()
+        public void PrintDesk(List<PyramidRow>? pyramidRows = null)
         {
-            foreach (var row in PyramidRows)
+            pyramidRows ??= PyramidRows;
+            foreach (var row in pyramidRows)
             {
-                var rowIndex = PyramidRows.IndexOf(row);
+                var rowIndex = pyramidRows.IndexOf(row);
                 StringBuilder sb = new(EmptyPlace.Multiply(6 - rowIndex));
                 foreach (var card in row.RowCards)
                 {
@@ -55,51 +56,85 @@ namespace PyramidSolver.Models
             }
         }
 
-        public bool TrySolve(out List<string>? moves, List<PyramidRow>? pyramidRows = null,
-                                List<Card>? stockCards = null, int stockIndex = 0, int stockIndexA = 0, int stockIndexB = -1)
+        public void PrintStock(List<Card>? stock = null)
+        {
+            stock ??= StockCards;
+
+            StringBuilder sb = new();
+            foreach (var card in stock)
+            {
+                sb.Append(card.OnDesk ? card.ToString() : EmptyCard);
+                sb.Append(EmptyPlace);
+            }
+            Console.WriteLine(sb.ToString());
+
+        }
+
+        public bool TrySolve(out List<string>? moves, out int checkedStatesCount)
         {
             moves = new List<string>();
-            pyramidRows ??= ClonePyramidRows(PyramidRows);
-            stockCards ??= CloneStockCards(StockCards);
+            checkedStatesCount = 0;
+            var stack = new Stack<GameState>();
+            var initialState = new GameState(
+                PyramidRows,
+                StockCards,
+                stockIndex: 0,
+                stockIndexA: 0,
+                stockIndexB: -1,
+                moves: new List<string>()
+            );
+            stack.Push(initialState);
 
-            if (stockIndex > 3) return false;
-            if (!pyramidRows.Any(pr => pr.RowCards.Any(rc => rc.OnDesk))) return true;
-            var possibleMoves = GetPossibleMoves(pyramidRows, stockCards, stockIndexA, stockIndexB);
-            if (possibleMoves.Count == 0) return false;
+            var visitedStates = new HashSet<string>();
 
-            foreach (var possibleMove in possibleMoves)
+            while (stack.Count > 0)
             {
-                if (possibleMove.MoveType is MoveType.MoveStock)
-                {
-                    if (stockIndexA > StockCards.Count)
-                    {
-                        stockIndex++;
-                        stockIndexA = 0;
-                        stockIndexB = -1;
-                    }
-                    else
-                    {
-                        stockIndexA++;
-                        stockIndexB++;
-                    }
+                var currentState = stack.Pop();
 
-                    moves.Add(MoveString.FlipStock());
-                }
-                else if (possibleMove is MatchMove matchMove)
+                var stateStockCount = currentState.StockCards.Where(c => c.OnDesk).Count();
+                if (currentState.StockIndexA >= stateStockCount - 1)
                 {
-                    matchMove.FirstCardToMatch.OnDesk = false;
-                    matchMove.SecondCardToMatch.OnDesk = false;
-                    moves.Add(MoveString.Match(matchMove.FirstCardToMatch!, matchMove.SecondCardToMatch!));
+                    currentState.StockIndex++;
+                    currentState.StockIndexA = 0;
+                    currentState.StockIndexB = -1;
                 }
 
-                if (TrySolve(out List<string> newMoves, ClonePyramidRows(pyramidRows), CloneStockCards(stockCards), stockIndex, stockIndexA, stockIndexB))
+                if (currentState.StockIndex >= 3) continue;
+
+                // Проверка на конечное состояние
+                if (!currentState.PyramidRows.Any(pr => pr.RowCards.Any(rc => rc.OnDesk)))
                 {
-                    moves.AddRange(newMoves);
+                    moves = currentState.Moves;
                     return true;
+                }
+
+                PrintDesk(currentState.PyramidRows);
+                PrintStock(currentState.StockCards);
+                Console.WriteLine($"Stock params: {currentState.StockIndex}, {currentState.StockIndexA}, {currentState.StockIndexB}");
+
+                // Проверка уникальности состояния
+                var stateHash = GetStateHash(currentState);
+                if (visitedStates.Contains(stateHash)) continue;
+                visitedStates.Add(stateHash);
+
+                checkedStatesCount++;
+
+                var possibleMoves = GetPossibleMoves(
+                    currentState.PyramidRows,
+                    currentState.StockCards,
+                    currentState.StockIndexA,
+                    currentState.StockIndexB
+                );
+
+                foreach (var move in possibleMoves)
+                {
+                    var newState = currentState.ApplyMove(move);
+                    if (newState.StockIndex >= 3) continue; // Пропускаем невалидные состояния
+                    stack.Push(newState);
                 }
             }
 
-            return true;
+            return false;
         }
 
         private List<PossibleMove> GetPossibleMoves(List<PyramidRow> pyramidRows, List<Card> stockCards, int stockIndexA, int stockIndexB)
@@ -117,44 +152,26 @@ namespace PyramidSolver.Models
             foreach (var row in pyramidRows)
             {
                 possibleCards.AddRange(row.RowCards.Where(rc
-                    => rc.OnDesk && GetCardCanBeRemoved(rc)));
+                    => rc.OnDesk && GetCardCanBeRemoved(rc, pyramidRows)));
             }
+
+            result.Add(new(MoveType.MoveStock));
 
             foreach (var card in possibleCards)
             {
                 if (card.Rank is Enums.Rank.King)
                 {
-                    result.Add(new RemoveKingMove(MoveType.RemoveKing, card));
+                    result.Add(new(MoveType.RemoveKing, card));
                     continue;
                 }
 
                 var matchableCard = GetMatchableCard(card, possibleCards);
                 if (matchableCard is null) continue;
 
-                var newMove = new MatchMove(MoveType.Match, card, matchableCard);
+                var newMove = new PossibleMove(MoveType.Match, card, matchableCard);
                 if (result.Any(m => m.Equals(newMove))) continue;
                 result.Add(newMove);
             }
-
-            result.Add(new(MoveType.MoveStock));
-
-            return result;
-        }
-
-        private List<PyramidRow> ClonePyramidRows(List<PyramidRow> pyramidRows)
-        {
-            var result = new List<PyramidRow>();
-            foreach (var row in PyramidRows)
-                result.Add(row.Clone());
-
-            return result;
-        }
-
-        private List<Card> CloneStockCards(List<Card> cards)
-        {
-            var result = new List<Card>();
-            foreach (var card in StockCards)
-                result.Add(card.Clone());
 
             return result;
         }
@@ -162,11 +179,11 @@ namespace PyramidSolver.Models
         private Card? GetMatchableCard(Card card, List<Card> cards) =>
             cards.Where(c => !c.Equals(card)).FirstOrDefault(c => c.Rank == card.MatchableRank);
 
-        private bool GetCardCanBeRemoved(Card card)
+        private bool GetCardCanBeRemoved(Card card, List<PyramidRow> pyramidRows)
         {
-            var row = PyramidRows.FirstOrDefault(pr => pr.RowCards.Contains(card));
+            var row = pyramidRows.FirstOrDefault(pr => pr.RowCards.Contains(card));
             if (row is null) return true;
-            var topRow = PyramidRows.ElementAtOrDefault(PyramidRows.IndexOf(row) + 1);
+            var topRow = pyramidRows.ElementAtOrDefault(pyramidRows.IndexOf(row) + 1);
             if (topRow is null) return true;
 
             int cardIndex = row.RowCards.IndexOf(card);
@@ -174,6 +191,32 @@ namespace PyramidSolver.Models
             bool rightCardRemoved = !topRow.RowCards[cardIndex + 1].OnDesk;
 
             return leftCardRemoved && rightCardRemoved;
+        }
+
+        private string GetStateHash(GameState state)
+        {
+            var sb = new StringBuilder();
+
+            // Хеширование пирамиды
+            foreach (var row in state.PyramidRows)
+            {
+                foreach (var card in row.RowCards)
+                {
+                    sb.Append(card.OnDesk ? '1' : '0');
+                }
+            }
+
+            sb.Append(state.StockIndex);
+            sb.Append(state.StockIndexA);
+            sb.Append(state.StockIndexB);
+
+            // Хеширование стока
+            foreach (var card in state.StockCards)
+            {
+                sb.Append(card.OnDesk ? '1' : '0');
+            }
+
+            return sb.ToString();
         }
 
         public const string EmptyCard = "__";

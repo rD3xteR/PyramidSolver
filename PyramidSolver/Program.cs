@@ -10,20 +10,31 @@ namespace PyramidSolver
             gameBoard.FillBoard();
             gameBoard.FillStock();
             gameBoard.PrintDesk();
-            gameBoard.TrySolve(out List<string> moves);
-            foreach (var move in moves)
+
+            if (gameBoard.TrySolve(out var moves, out int checkedStates))
             {
-                Console.WriteLine(move);
+                Console.WriteLine("\nSolve found! Moves:\n");
+                for (int i = 0; i < moves.Count; i++)
+                {
+                    Console.WriteLine($"{i + 1}. {moves[i]}");
+                }
             }
+            else
+            {
+                Console.WriteLine("\nSolve not found!");
+            }
+            Console.WriteLine($"Checked states: {checkedStates}");
         }
     }
 
     public static class MoveString
     {
-        public static string Match(Card cardA, Card cardB) =>
-            $"Match {cardA} with {cardB}.";
+        public static string FlipStock() => "Move stock card.";
 
-        public static string FlipStock() =>
-            $"Move stock card.";
+        public static string Match(Card card1, Card card2) =>
+            $"Match {card1} and {card2}";
+
+        public static string RemoveKing(Card king) =>
+            $"Remove king {king}";
     }
 }

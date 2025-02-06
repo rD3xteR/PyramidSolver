@@ -4,23 +4,23 @@ namespace PyramidSolver.Models
 {
     public class Card
     {
-        public Rank Rank;
-        public Suit Suit;
-        public Rank MatchableRank;
+        public Rank Rank { get; }
+        public Suit Suit { get; }
+        public Rank MatchableRank { get; }
 
-        public bool OnDesk = true;
+        public bool OnDesk { get; set; }
 
         public Card(Rank rank, Suit suit)
         {
             Rank = rank;
             Suit = suit;
+            OnDesk = true;
 
             if (RankMapping.TryGetValue(rank, out Rank matchableRank))
                 MatchableRank = matchableRank;
         }
 
-        public Card Clone() =>
-            new(Rank, Suit) { OnDesk = OnDesk };
+        public Card Clone() => new(Rank, Suit) { OnDesk = OnDesk };
 
         override public string ToString() => $"{(char)Rank}{(char)Suit}";
 
@@ -30,8 +30,7 @@ namespace PyramidSolver.Models
             return Rank == card.Rank && Suit == card.Suit;
         }
 
-        public override int GetHashCode() =>
-            Rank.GetHashCode() ^ Suit.GetHashCode();
+        public override int GetHashCode() => HashCode.Combine(Rank, Suit, OnDesk);
 
         private static readonly Dictionary<Rank, Rank> RankMapping = new() {
         { Rank.Ace, Rank.Queen },
