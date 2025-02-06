@@ -10,8 +10,11 @@ namespace PyramidSolver
             gameBoard.FillBoard();
             gameBoard.FillStock();
             gameBoard.PrintDesk();
-            gameBoard.TrySolve();
-            gameBoard.PrintMoves();
+            gameBoard.TrySolve(out List<string> moves);
+            foreach (var move in moves)
+            {
+                Console.WriteLine(move);
+            }
         }
     }
 

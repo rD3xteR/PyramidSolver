@@ -19,6 +19,9 @@ namespace PyramidSolver.Models
                 MatchableRank = matchableRank;
         }
 
+        public Card Clone() =>
+            new(Rank, Suit) { OnDesk = OnDesk };
+
         override public string ToString() => $"{(char)Rank}{(char)Suit}";
 
         public override bool Equals(object? obj)

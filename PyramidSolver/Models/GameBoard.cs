@@ -6,11 +6,6 @@ namespace PyramidSolver.Models
     {
         public List<PyramidRow> PyramidRows = [];
         public List<Card> StockCards = [];
-        public List<Move> Moves = [];
-        public int? StockIndexA = 0;
-        public int? StockIndexB = null;
-
-        public bool IsCleared => PyramidRows.Any(pr => pr.RowCards.Any(rc => rc.OnDesk));
 
         public void FillBoard()
         {
@@ -45,14 +40,6 @@ namespace PyramidSolver.Models
             }
         }
 
-        public void PrintMoves()
-        {
-            foreach (var move in Moves)
-            {
-                Console.WriteLine($"{move.MoveNumber}. {move.Description}");
-            }
-        }
-
         public void PrintDesk()
         {
             foreach (var row in PyramidRows)
@@ -68,56 +55,106 @@ namespace PyramidSolver.Models
             }
         }
 
-        public void TrySolve()
+        public bool TrySolve(out List<string>? moves, List<PyramidRow>? pyramidRows = null,
+                                List<Card>? stockCards = null, int stockIndex = 0, int stockIndexA = 0, int stockIndexB = -1)
         {
-            var possibleMoves = GetPossibleMoves();
-        }
+            moves = new List<string>();
+            pyramidRows ??= ClonePyramidRows(PyramidRows);
+            stockCards ??= CloneStockCards(StockCards);
 
-        private void ResetSolving()
-        {
-            foreach (var row in PyramidRows)
+            if (stockIndex > 3) return false;
+            if (!pyramidRows.Any(pr => pr.RowCards.Any(rc => rc.OnDesk))) return true;
+            var possibleMoves = GetPossibleMoves(pyramidRows, stockCards, stockIndexA, stockIndexB);
+            if (possibleMoves.Count == 0) return false;
+
+            foreach (var possibleMove in possibleMoves)
             {
-                foreach (var card in row.RowCards)
-                    card.OnDesk = true;
-            }
-            foreach (var card in StockCards)
-                card.OnDesk = true;
+                if (possibleMove.MoveType is MoveType.MoveStock)
+                {
+                    if (stockIndexA > StockCards.Count)
+                    {
+                        stockIndex++;
+                        stockIndexA = 0;
+                        stockIndexB = -1;
+                    }
+                    else
+                    {
+                        stockIndexA++;
+                        stockIndexB++;
+                    }
 
-            Moves.Clear();
+                    moves.Add(MoveString.FlipStock());
+                }
+                else if (possibleMove is MatchMove matchMove)
+                {
+                    matchMove.FirstCardToMatch.OnDesk = false;
+                    matchMove.SecondCardToMatch.OnDesk = false;
+                    moves.Add(MoveString.Match(matchMove.FirstCardToMatch!, matchMove.SecondCardToMatch!));
+                }
+
+                if (TrySolve(out List<string> newMoves, ClonePyramidRows(pyramidRows), CloneStockCards(stockCards), stockIndex, stockIndexA, stockIndexB))
+                {
+                    moves.AddRange(newMoves);
+                    return true;
+                }
+            }
+
+            return true;
         }
 
-        private List<PossibleMove> GetPossibleMoves()
+        private List<PossibleMove> GetPossibleMoves(List<PyramidRow> pyramidRows, List<Card> stockCards, int stockIndexA, int stockIndexB)
         {
             var result = new List<PossibleMove>();
-            var leftStock = StockCards.Where(sc => sc.OnDesk).ToList();
+
+            var leftStock = stockCards.Where(sc => sc.OnDesk).ToList();
             var possibleCards = new List<Card>();
 
-            if (StockIndexA is not null)
-                possibleCards.Add(leftStock[(int)StockIndexA]);
-            if (StockIndexB is not null)
-                possibleCards.Add(leftStock[(int)StockIndexB]);
+            if (stockIndexA >= 0)
+                possibleCards.Add(leftStock[stockIndexA]);
+            if (stockIndexB >= 0)
+                possibleCards.Add(leftStock[stockIndexB]);
 
-            foreach (var row in PyramidRows)
+            foreach (var row in pyramidRows)
             {
                 possibleCards.AddRange(row.RowCards.Where(rc
                     => rc.OnDesk && GetCardCanBeRemoved(rc)));
             }
 
-            result.Add(new(MoveType.MoveStock));
-
             foreach (var card in possibleCards)
             {
                 if (card.Rank is Enums.Rank.King)
                 {
-                    result.Add(new(MoveType.RemoveKing, card, card));
+                    result.Add(new RemoveKingMove(MoveType.RemoveKing, card));
                     continue;
                 }
 
                 var matchableCard = GetMatchableCard(card, possibleCards);
                 if (matchableCard is null) continue;
 
-                result.Add(new(MoveType.Match, card, matchableCard));
+                var newMove = new MatchMove(MoveType.Match, card, matchableCard);
+                if (result.Any(m => m.Equals(newMove))) continue;
+                result.Add(newMove);
             }
+
+            result.Add(new(MoveType.MoveStock));
+
+            return result;
+        }
+
+        private List<PyramidRow> ClonePyramidRows(List<PyramidRow> pyramidRows)
+        {
+            var result = new List<PyramidRow>();
+            foreach (var row in PyramidRows)
+                result.Add(row.Clone());
+
+            return result;
+        }
+
+        private List<Card> CloneStockCards(List<Card> cards)
+        {
+            var result = new List<Card>();
+            foreach (var card in StockCards)
+                result.Add(card.Clone());
 
             return result;
         }
@@ -125,7 +162,7 @@ namespace PyramidSolver.Models
         private Card? GetMatchableCard(Card card, List<Card> cards) =>
             cards.Where(c => !c.Equals(card)).FirstOrDefault(c => c.Rank == card.MatchableRank);
 
-        public bool GetCardCanBeRemoved(Card card)
+        private bool GetCardCanBeRemoved(Card card)
         {
             var row = PyramidRows.FirstOrDefault(pr => pr.RowCards.Contains(card));
             if (row is null) return true;
