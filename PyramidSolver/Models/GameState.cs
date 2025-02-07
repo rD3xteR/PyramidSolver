@@ -42,7 +42,7 @@ public class GameState
             case MoveType.MoveStock:
                 newMoves.Add(MoveString.FlipStock());
 
-                if (StockIndexA >= newStock.Where(c => c.OnDesk).Count() - 1)
+                if (StockIndexA >= newStock.Where(c => c.OnDesk).Count())
                 {
                     newStockIndex++;
                     newStockIndexA = 0;
@@ -56,12 +56,22 @@ public class GameState
                 break;
 
             case MoveType.Match:
+                if (GetRemovableCardInBStock(move.FirstCardToMatch!, newStock, newStockIndexB) || GetRemovableCardInBStock(move.SecondCardToMatch!, newStock, newStockIndexB))
+                {
+                    newStockIndexA--;
+                    newStockIndexB--;
+                }
                 ApplyCardRemoval(newPyramid, newStock, move.FirstCardToMatch!);
                 ApplyCardRemoval(newPyramid, newStock, move.SecondCardToMatch!);
                 newMoves.Add(MoveString.Match(move.FirstCardToMatch!, move.SecondCardToMatch!));
                 break;
 
             case MoveType.RemoveKing:
+                if (GetRemovableCardInBStock(move.FirstCardToMatch!, newStock, newStockIndexB))
+                {
+                    newStockIndexA--;
+                    newStockIndexB--;
+                }
                 ApplyCardRemoval(newPyramid, newStock, move.FirstCardToMatch!);
                 newMoves.Add(MoveString.RemoveKing(move.FirstCardToMatch!));
                 break;
@@ -111,5 +121,11 @@ public class GameState
             result.Add(card.Clone());
 
         return result;
+    }
+
+    private bool GetRemovableCardInBStock(Card cardToCheck, List<Card> cards, int stockIndexB)
+    {
+        if (stockIndexB < 0) return false;
+        return cards.Where(c => c.OnDesk).ToList()[stockIndexB].Equals(cardToCheck);
     }
 }

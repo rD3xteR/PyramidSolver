@@ -67,6 +67,24 @@ namespace PyramidSolver.Models
                 sb.Append(EmptyPlace);
             }
             Console.WriteLine(sb.ToString());
+        }
+
+        public bool CheckBoardIsCorrect(out List<Card> incorrectCards)
+        {
+            incorrectCards = new List<Card>();
+            var allCards = new List<Card>();
+            foreach (var row in PyramidRows)
+                allCards.AddRange(row.RowCards);
+
+            allCards.AddRange(StockCards);
+
+            foreach (var card in allCards)
+            {
+                if (allCards.Where(c => c.Equals(card)).Count() > 1)
+                    incorrectCards.Add(card);
+            }
+
+            return incorrectCards.Count > 0;
 
         }
 
@@ -92,7 +110,7 @@ namespace PyramidSolver.Models
                 var currentState = stack.Pop();
 
                 var stateStockCount = currentState.StockCards.Where(c => c.OnDesk).Count();
-                if (currentState.StockIndexA >= stateStockCount - 1)
+                if (currentState.StockIndexA >= stateStockCount)
                 {
                     currentState.StockIndex++;
                     currentState.StockIndexA = 0;
@@ -101,18 +119,19 @@ namespace PyramidSolver.Models
 
                 if (currentState.StockIndex >= 3) continue;
 
-                // Проверка на конечное состояние
+                // Check for final state
                 if (!currentState.PyramidRows.Any(pr => pr.RowCards.Any(rc => rc.OnDesk)))
                 {
                     moves = currentState.Moves;
                     return true;
                 }
 
-                PrintDesk(currentState.PyramidRows);
-                PrintStock(currentState.StockCards);
-                Console.WriteLine($"Stock params: {currentState.StockIndex}, {currentState.StockIndexA}, {currentState.StockIndexB}");
+                // Uncommit to print every state
+                //PrintDesk(currentState.PyramidRows);
+                //PrintStock(currentState.StockCards);
+                //Console.WriteLine($"Stock params: {currentState.StockIndex}, {currentState.StockIndexA}, {currentState.StockIndexB}");
 
-                // Проверка уникальности состояния
+                // Check for unique state
                 var stateHash = GetStateHash(currentState);
                 if (visitedStates.Contains(stateHash)) continue;
                 visitedStates.Add(stateHash);
@@ -129,7 +148,7 @@ namespace PyramidSolver.Models
                 foreach (var move in possibleMoves)
                 {
                     var newState = currentState.ApplyMove(move);
-                    if (newState.StockIndex >= 3) continue; // Пропускаем невалидные состояния
+                    if (newState.StockIndex >= 3) continue; // Skip invalid states
                     stack.Push(newState);
                 }
             }
@@ -206,15 +225,15 @@ namespace PyramidSolver.Models
                 }
             }
 
-            sb.Append(state.StockIndex);
-            sb.Append(state.StockIndexA);
-            sb.Append(state.StockIndexB);
-
             // Хеширование стока
             foreach (var card in state.StockCards)
             {
                 sb.Append(card.OnDesk ? '1' : '0');
             }
+
+            sb.Append(state.StockIndex);
+            sb.Append(state.StockIndexA);
+            sb.Append(state.StockIndexB);
 
             return sb.ToString();
         }

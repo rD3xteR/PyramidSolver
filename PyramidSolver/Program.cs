@@ -9,11 +9,25 @@ namespace PyramidSolver
             var gameBoard = new GameBoard();
             gameBoard.FillBoard();
             gameBoard.FillStock();
+
+            if (gameBoard.CheckBoardIsCorrect(out List<Card> incorrectCards))
+            {
+                Console.WriteLine("Some cards are incorrect:");
+                foreach (Card card in incorrectCards)
+                {
+                    Console.WriteLine(card);
+                }
+                return;
+            }
+
+            Console.WriteLine("Board checked, all cards correct.");
+
             gameBoard.PrintDesk();
+            gameBoard.PrintStock();
 
             if (gameBoard.TrySolve(out var moves, out int checkedStates))
             {
-                Console.WriteLine("\nSolve found! Moves:\n");
+                Console.WriteLine("\nSolution found! Moves:\n");
                 for (int i = 0; i < moves.Count; i++)
                 {
                     Console.WriteLine($"{i + 1}. {moves[i]}");
@@ -21,7 +35,7 @@ namespace PyramidSolver
             }
             else
             {
-                Console.WriteLine("\nSolve not found!");
+                Console.WriteLine("\nSolution not found!");
             }
             Console.WriteLine($"Checked states: {checkedStates}");
         }
