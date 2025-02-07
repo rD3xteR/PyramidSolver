@@ -6,11 +6,11 @@ namespace PyramidSolver
     {
         public static void Main()
         {
-            var gameBoard = new GameBoard();
-            gameBoard.FillBoard();
-            gameBoard.FillStock();
+            var solver = new Solver();
+            solver.FillBoard();
+            solver.FillStock();
 
-            if (gameBoard.CheckBoardIsCorrect(out List<Card> incorrectCards))
+            if (solver.CheckBoardIsCorrect(out List<Card> incorrectCards))
             {
                 Console.WriteLine("Some cards are incorrect:");
                 foreach (Card card in incorrectCards)
@@ -22,10 +22,10 @@ namespace PyramidSolver
 
             Console.WriteLine("Board checked, all cards correct.");
 
-            gameBoard.PrintDesk();
-            gameBoard.PrintStock();
+            solver.PrintDesk();
+            solver.PrintStock();
 
-            if (gameBoard.TrySolve(out var moves, out int checkedStates))
+            if (solver.TrySolve(out var moves, out int checkedStates))
             {
                 Console.WriteLine("\nSolution found! Moves:\n");
                 for (int i = 0; i < moves.Count; i++)

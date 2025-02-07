@@ -2,7 +2,7 @@
 
 namespace PyramidSolver.Models
 {
-    public class GameBoard
+    public class Solver
     {
         public List<PyramidRow> PyramidRows = [];
         public List<Card> StockCards = [];
@@ -115,6 +115,7 @@ namespace PyramidSolver.Models
                     currentState.StockIndex++;
                     currentState.StockIndexA = 0;
                     currentState.StockIndexB = -1;
+                    currentState.Moves.Add(MoveString.FlipStock());
                 }
 
                 if (currentState.StockIndex >= 3) continue;
